@@ -189,6 +189,8 @@ class EditorHelp : public VBoxContainer {
 
 	void _toggle_files_pressed();
 
+    String _resolve_enum_value_name(const String &p_enumeration, const String &p_value);
+
 	inline static int doc_generation_count = 0;
 	inline static String doc_version_hash;
 	inline static Thread worker_thread;

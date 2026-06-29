@@ -497,6 +497,29 @@ void EditorHelp::_add_type(const String &p_type, const String &p_enum, bool p_is
 	_add_type_to_rt(p_type, p_enum, p_is_bitfield, class_desc, this, edited_class);
 }
 
+String EditorHelp::_resolve_enum_value_name(const String &p_enumeration, const String &p_value) {
+	const int dot_pos = p_enumeration.rfind_char('.');
+	if (dot_pos < 0) {
+		return String();
+	}
+
+	const String enum_class_name = p_enumeration.left(dot_pos);
+	const String enum_name = p_enumeration.substr(dot_pos + 1);
+
+	const DocData::ClassDoc *const enum_class = EditorHelp::get_doc(enum_class_name);
+	if (!enum_class) {
+		return String();
+	}
+
+	for (const DocData::ConstantDoc &constant : enum_class->constants) {
+		if (constant.enumeration == enum_name && constant.value == p_value) {
+			return constant.name;
+		}
+	}
+
+	return String();
+}
+
 void EditorHelp::_add_type_icon(const String &p_type, int p_size, const String &p_fallback) {
 	Ref<Texture2D> icon = EditorNode::get_singleton()->get_class_icon(p_type, p_fallback);
 	if (icon.is_null()) {
@@ -635,7 +658,13 @@ void EditorHelp::_add_method(const DocData::MethodDoc &p_method, bool p_overview
 			class_desc->pop(); // color
 
 			class_desc->push_color(theme_cache.value_color);
-			class_desc->add_text(_fix_constant(argument.default_value));
+			const String enum_value_name = _resolve_enum_value_name(argument.enumeration, argument.default_value);
+			if (!enum_value_name.is_empty()) {
+				_add_type(argument.type, argument.enumeration, argument.is_bitfield);
+				class_desc->add_text("." + enum_value_name);
+			} else {
+				class_desc->add_text(_fix_constant(argument.default_value));
+			}
 			class_desc->pop(); // color
 		}
 	}
@@ -1319,7 +1348,13 @@ void EditorHelp::_update_doc() {
 					class_desc->pop(); // color
 
 					class_desc->push_color(theme_cache.value_color);
-					class_desc->add_text(_fix_constant(prop.default_value));
+					const String enum_value_name = _resolve_enum_value_name(prop.enumeration, prop.default_value);
+					if (!enum_value_name.is_empty()) {
+						_add_type(prop.type, prop.enumeration, prop.is_bitfield);
+						class_desc->add_text("." + enum_value_name);
+					} else {
+						class_desc->add_text(_fix_constant(prop.default_value));
+					}
 					class_desc->pop(); // color
 
 					class_desc->push_color(theme_cache.symbol_color);
@@ -2174,7 +2209,13 @@ void EditorHelp::_update_doc() {
 				class_desc->pop(); // color
 
 				class_desc->push_color(theme_cache.value_color);
-				class_desc->add_text(_fix_constant(prop.default_value));
+				const String enum_value_name = _resolve_enum_value_name(prop.enumeration, prop.default_value);
+				if (!enum_value_name.is_empty()) {
+					_add_type(prop.type, prop.enumeration, prop.is_bitfield);
+					class_desc->add_text("." + enum_value_name);
+				} else {
+					class_desc->add_text(_fix_constant(prop.default_value));
+				}
 				class_desc->pop(); // color
 
 				class_desc->push_color(theme_cache.symbol_color);
