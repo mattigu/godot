@@ -275,7 +275,7 @@ Error VariantParser::get_token(Stream *p_stream, Token &r_token, int &r_line, St
 				[[fallthrough]];
 			}
 			case '"': {
-				String str;
+				StringBuffer<> str_buf;
 				char32_t prev = 0;
 				while (true) {
 					char32_t ch = p_stream->get_char();
@@ -378,7 +378,7 @@ Error VariantParser::get_token(Stream *p_stream, Token &r_token, int &r_line, St
 							r_token.type = TK_ERROR;
 							return ERR_PARSE_ERROR;
 						}
-						str += res;
+						str_buf.append(String::chr(res));
 					} else {
 						if (prev != 0) {
 							r_err_str = "Invalid UTF-16 sequence in string, unpaired lead surrogate";
@@ -388,7 +388,7 @@ Error VariantParser::get_token(Stream *p_stream, Token &r_token, int &r_line, St
 						if (ch == '\n') {
 							r_line++;
 						}
-						str += ch;
+						str_buf.append(ch);
 					}
 				}
 				if (prev != 0) {
@@ -396,7 +396,7 @@ Error VariantParser::get_token(Stream *p_stream, Token &r_token, int &r_line, St
 					r_token.type = TK_ERROR;
 					return ERR_PARSE_ERROR;
 				}
-
+				String str = str_buf.as_string();
 				if (p_stream->is_utf8()) {
 					// Re-interpret the string we built as ascii.
 					CharString string_as_ascii = str.ascii(true);
@@ -1891,7 +1891,7 @@ Error VariantParser::parse_tag(Stream *p_stream, int &r_line, String &r_err_str,
 Error VariantParser::parse_tag_assign_eof(Stream *p_stream, int &r_line, String &r_err_str, Tag &r_tag, String &r_assign, Variant &r_value, ResourceParser *p_res_parser, bool p_simple_tag) {
 	//assign..
 	r_assign = "";
-	String what;
+	StringBuffer<> what;
 
 	while (true) {
 		char32_t c;
@@ -1943,12 +1943,13 @@ Error VariantParser::parse_tag_assign_eof(Stream *p_stream, int &r_line, String 
 					return ERR_INVALID_DATA;
 				}
 
-				what = tk.value;
+				what = StringBuffer<>();
+				what.append(String(tk.value));
 
 			} else if (c != '=') {
-				what += c;
+				what.append(c);
 			} else {
-				r_assign = what;
+				r_assign = what.as_string();
 				Token token;
 				get_token(p_stream, token, r_line, r_err_str);
 				Error err = parse_value(token, r_value, p_stream, r_line, r_err_str, p_res_parser);
