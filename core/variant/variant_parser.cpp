@@ -148,16 +148,27 @@ const char *VariantParser::tk_name[TK_MAX] = {
 	"ERROR"
 };
 
-static double stor_fix(const String &p_str) {
-	if (p_str == "inf") {
-		return Math::INF;
-	} else if (p_str == "-inf" || p_str == "inf_neg") {
-		// inf_neg kept for compatibility.
-		return -Math::INF;
-	} else if (p_str == "nan") {
-		return Math::NaN;
+static bool parse_number_token(const VariantParser::Token &p_token, Variant &r_value) {
+	if (p_token.type == VariantParser::TK_NUMBER) {
+		r_value = p_token.value;
+		return true;
 	}
-	return -1;
+	if (p_token.type != VariantParser::TK_IDENTIFIER) {
+		return false;
+	}
+	const String str = p_token.value;
+	if (str == "inf") {
+		r_value = Math::INF;
+	} else if (str == "-inf" || str == "inf_neg") {
+		// inf_neg kept for compatibility.
+		r_value = -Math::INF;
+	} else if (str == "nan") {
+		r_value = Math::NaN;
+	} else {
+		return false;
+	}
+
+	return true;
 }
 
 Error VariantParser::get_token(Stream *p_stream, Token &r_token, int &r_line, String &r_err_str) {
@@ -576,23 +587,14 @@ Error VariantParser::_parse_packed_array(Stream *p_stream, Vector<T> &r_construc
 
 		if (first && token.type == TK_PARENTHESIS_CLOSE) {
 			break;
-		} else if (token.type != TK_NUMBER) {
-			bool valid = false;
-			if (token.type == TK_IDENTIFIER) {
-				double real = stor_fix(token.value);
-				if (real != -1) {
-					token.type = TK_NUMBER;
-					token.value = real;
-					valid = true;
-				}
-			}
-			if (!valid) {
-				r_err_str = "Expected float in constructor";
-				return ERR_PARSE_ERROR;
-			}
+		}
+		Variant value;
+		if (!parse_number_token(token, value)) {
+			r_err_str = "Expected float in constructor";
+			return ERR_PARSE_ERROR;
 		}
 
-		r_construct.push_back(token.value);
+		r_construct.push_back(value);
 		first = false;
 	}
 
@@ -634,23 +636,13 @@ Error VariantParser::_parse_construct(Stream *p_stream, T *r_construct, int p_bu
 			return ERR_PARSE_ERROR;
 		}
 
-		if (token.type != TK_NUMBER) {
-			bool valid = false;
-			if (token.type == TK_IDENTIFIER) {
-				double real = stor_fix(token.value);
-				if (real != -1) {
-					token.type = TK_NUMBER;
-					token.value = real;
-					valid = true;
-				}
-			}
-			if (!valid) {
-				r_err_str = "Expected float in constructor";
-				return ERR_PARSE_ERROR;
-			}
+		Variant value;
+		if (!parse_number_token(token, value)) {
+			r_err_str = "Expected float in constructor";
+			return ERR_PARSE_ERROR;
 		}
 
-		r_construct[construct_idx] = token.value;
+		r_construct[construct_idx] = value;
 		++construct_idx;
 
 		first = false;
@@ -697,23 +689,13 @@ Error VariantParser::_parse_byte_array(Stream *p_stream, Vector<uint8_t> &r_cons
 	} else if (token.type == TK_NUMBER || token.type == TK_IDENTIFIER) {
 		// Individual elements.
 		while (true) {
-			if (token.type != TK_NUMBER) {
-				bool valid = false;
-				if (token.type == TK_IDENTIFIER) {
-					double real = stor_fix(token.value);
-					if (real != -1) {
-						token.type = TK_NUMBER;
-						token.value = real;
-						valid = true;
-					}
-				}
-				if (!valid) {
-					r_err_str = "Expected number in constructor";
-					return ERR_PARSE_ERROR;
-				}
+			Variant value;
+			if (!parse_number_token(token, value)) {
+				r_err_str = "Expected number in constructor";
+				return ERR_PARSE_ERROR;
 			}
 
-			r_construct.push_back(token.value);
+			r_construct.push_back(value);
 
 			get_token(p_stream, token, r_line, r_err_str);
 
